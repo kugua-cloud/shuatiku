@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>计算机综合题库 - 刷题系统</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PapaParse for CSV Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        /* Custom Scrollbar for question navigation */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- Demo Data based on User Snippets ---
+        const DEMO_DATA = [
+            // Computer Basics
+            { category: "计算机基础", q: "1946年诞生的世界上公认的第一台电子计算机是（)。", options: {A: "IBM560", B: "UNIVAC-1", C: "ENIAC", D: "EDVAC"}, ans: "C" },
+            { category: "计算机基础", q: "按电子计算机传统的分代方法，第一代至第四代计算机依次是（）。", options: {A: "晶体管计算机，集成电路计算机，大规模集成电路计算机，光器件计算机", B: "手摇机械计算机，电动机械计算机，电子管计算机，晶体管计算机", C: "电子管计算机，晶体管计算机，小、中规模集成电路计算机，大规模和超大规模集成电路计算机", D: "机械计算机，电子管计算机，晶体管计算机，集成电路计算机"}, ans: "C" },
+            { category: "计算机基础", q: "下列的英文缩写和中文名字的对照中，正确的是（）。", options: {A: "CA一计算机辅助制造", B: "CAD一计算机辅助设计", C: "CAM一计算机辅助教育", D: "CIMS一计算机集成管理系统"}, ans: "B" },
+            { category: "计算机基础", q: "计算机技术应用广泛，以下属于科学计算方面的是", options: {A: "火箭轨道计算", B: "视频信息处理", C: "信息检索", D: "图像信息处理"}, ans: "A" },
+            // Software Engineering
+            { category: "软件工程", q: "程序流程图中带有箭头的线段表示的是", options: {A: "控制流", B: "调用关系", C: "数据流", D: "图元关系"}, ans: "A" },
+            { category: "软件工程", q: "软件按功能可以分为:应用软件、系统软件和支撑软件(或工具软件)。下面属于应用软件的是", options: {A: "操作系统", B: "汇编程序", C: "教务管理系统", D: "编译程序"}, ans: "C" },
+            { category: "软件工程", q: "程序测试的目的是", options: {A: "诊断和改正程序中的错误", B: "发现程序中的错误", C: "发现并改正程序中的错误", D: "执行测试用例"}, ans: "B" },
+            // Data Structure
+            { category: "数据结构", q: "下列叙述中正确的是", options: {A: "所谓有序表是指在顺序存储空间内连续存放的元素序列", B: "有序表可以用链接存储方式存储在不连续的存储空间内", C: "有序表只能顺序存储在连续的存储空间内", D: "任何存储方式的有序表均能采用二分法进行查找"}, ans: "B" },
+            { category: "数据结构", q: "某二叉树的前序序列为ABCD，中序序列为DCBA，则后序序列为", options: {A: "ABCD", B: "CDAB", C: "DCBA", D: "BADC"}, ans: "C" },
+            // Database
+            { category: "数据库", q: "公司中有多个部门和多名职员:每个职员只能属于一个部门，一个部门司以有多名职员。则实体部门和职员间的联系是", options: {A: "m:n联系", B: "1:m联系", C: "m:1联系", D: "1:1联系"}, ans: "B" },
+            { category: "数据库", q: "数据库设计过程不包括", options: {A: "逻辑设计", B: "算法设计", C: "物理设计", D: "概念设计"}, ans: "B" },
+            // Operations
+            { category: "操作题", q: "小华利用Word编辑一份书稿，出版社要求目录和正文的页码分别采用不同的格式，且均从第1项开始，最优的操作方法是:", options: {A: "将目录和正文分别存在两个文档中，分别设置页码。", B: "在目录与正文之间插入分节符，在不同的节中设置不同的页码。", C: "在Word中不设置页码，将其转换为PDF格式时再增加页码。", D: "在目录与正文之间插入分页符，在分页符前后设置不同的页码。"}, ans: "B" }
+        ];
+
+        // --- Icons ---
+        const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>;
+        const XIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+        const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>;
+        const CheckCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="green" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
+        const XCircleIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="red" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>;
+
+        function App() {
+            // State
+            const [allQuestions, setAllQuestions] = useState([]);
+            const [filteredQuestions, setFilteredQuestions] = useState([]);
+            const [currentCategory, setCurrentCategory] = useState("全部");
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [userAnswers, setUserAnswers] = useState({}); // { questionIndex: selectedOption }
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [showUploadModal, setShowUploadModal] = useState(false);
+            const [encoding, setEncoding] = useState("UTF-8"); // "UTF-8" or "GBK"
+            const [categories, setCategories] = useState(["全部"]);
+
+            // Initialize with Demo Data
+            useEffect(() => {
+                loadData(DEMO_DATA, "示例数据");
+            }, []);
+
+            // Helper to load data
+            const loadData = (data, sourceName) => {
+                const labeledData = data.map((item, idx) => ({
+                    ...item,
+                    originalIndex: idx, // Keep track for unique ID purposes if needed
+                    id: Math.random().toString(36).substr(2, 9)
+                }));
+                
+                // Merge if adding files, or replace? Let's Replace for simplicity when uploading new batch, 
+                // but if multiple files are dropped, we accumulate.
+                // For this implementation: "Import" replaces the current set to avoid duplicates.
+                setAllQuestions(labeledData);
+                
+                // Extract Categories
+                const cats = new Set(labeledData.map(q => q.category || "默认"));
+                setCategories(["全部", ...Array.from(cats)]);
+                setCurrentCategory("全部");
+                setFilteredQuestions(labeledData);
+                setCurrentIndex(0);
+                setUserAnswers({});
+            };
+
+            // Filter logic
+            useEffect(() => {
+                if (currentCategory === "全部") {
+                    setFilteredQuestions(allQuestions);
+                } else {
+                    setFilteredQuestions(allQuestions.filter(q => q.category === currentCategory));
+                }
+                setCurrentIndex(0); // Reset to first question of category
+            }, [currentCategory, allQuestions]);
+
+            const handleFileUpload = (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length === 0) return;
+
+                let newQuestions = [];
+                let processedCount = 0;
+
+                files.forEach(file => {
+                    Papa.parse(file, {
+                        header: true,
+                        skipEmptyLines: true,
+                        encoding: encoding,
+                        complete: (results) => {
+                            const parsedData = results.data.map((row, idx) => {
+                                // Smart detection of fields
+                                const question = row['题干'] || row['Question'] || row['题目'];
+                                const answer = (row['答案'] || row['Answer'] || '').trim().toUpperCase();
+                                
+                                // Detect Category: filename or '节点名' column
+                                let category = file.name.replace('.csv', '').replace('.xlsx', '');
+                                if (row['节点名']) category = row['节点名']; // Priority to internal column
+                                // Clean up filename category (remove extension and extra parts)
+                                category = category.split('-')[0].trim();
+
+                                if (!question) return null; // Skip invalid rows
+
+                                // Extract options dynamically
+                                const options = {};
+                                ['A', 'B', 'C', 'D', 'E'].forEach(opt => {
+                                    if (row[opt]) options[opt] = row[opt];
+                                });
+
+                                return {
+                                    category: category,
+                                    q: question,
+                                    options: options,
+                                    ans: answer,
+                                    id: `${file.name}-${idx}`
+                                };
+                            }).filter(item => item !== null);
+
+                            newQuestions = [...newQuestions, ...parsedData];
+                            processedCount++;
+
+                            if (processedCount === files.length) {
+                                // All files processed
+                                setAllQuestions(newQuestions);
+                                const cats = new Set(newQuestions.map(q => q.category || "默认"));
+                                setCategories(["全部", ...Array.from(cats)]);
+                                setCurrentCategory("全部");
+                                setFilteredQuestions(newQuestions);
+                                setCurrentIndex(0);
+                                setUserAnswers({});
+                                setShowUploadModal(false);
+                                alert(`成功导入 ${newQuestions.length} 道题目！`);
+                            }
+                        }
+                    });
+                });
+            };
+
+            const handleShuffle = () => {
+                if (window.confirm("确定要打乱当前题目的顺序吗？做题记录将保留，但顺序会改变。")) {
+                    const shuffled = [...filteredQuestions].sort(() => Math.random() - 0.5);
+                    setFilteredQuestions(shuffled);
+                    setCurrentIndex(0);
+                }
+            };
+
+            const handleAnswer = (optionKey) => {
+                setUserAnswers(prev => ({
+                    ...prev,
+                    [filteredQuestions[currentIndex].id]: optionKey
+                }));
+            };
+
+            const stats = useMemo(() => {
+                let correct = 0;
+                let wrong = 0;
+                let answered = 0;
+                
+                filteredQuestions.forEach(q => {
+                    const userAns = userAnswers[q.id];
+                    if (userAns) {
+                        answered++;
+                        if (userAns === q.ans) correct++;
+                        else wrong++;
+                    }
+                });
+                
+                return { correct, wrong, answered, total: filteredQuestions.length };
+            }, [userAnswers, filteredQuestions]);
+
+            const currentQ = filteredQuestions[currentIndex];
+
+            if (!currentQ) return <div className="flex items-center justify-center h-screen">正在加载或没有数据...</div>;
+
+            return (
+                <div className="flex flex-col h-screen overflow-hidden">
+                    {/* Header */}
+                    <header className="bg-white shadow-sm z-10 p-4 flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 rounded-lg lg:hidden">
+                                <MenuIcon />
+                            </button>
+                            <h1 className="text-xl font-bold text-gray-800 hidden sm:block">题库刷题系统</h1>
+                            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded ml-2">
+                                {currentCategory}
+                            </span>
+                        </div>
+                        <div className="flex gap-2">
+                             <button 
+                                onClick={handleShuffle}
+                                className="px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                            >
+                                乱序
+                            </button>
+                            <button 
+                                onClick={() => setShowUploadModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+                            >
+                                <UploadIcon /> <span className="hidden sm:inline">导入题库</span>
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Main Layout */}
+                    <div className="flex flex-1 overflow-hidden relative">
+                        
+                        {/* Sidebar (Desktop: Static, Mobile: Drawer) */}
+                        <div className={`fixed inset-y-0 left-0 z-20 w-72 bg-white border-r transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                            <div className="h-full flex flex-col">
+                                <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+                                    <h2 className="font-semibold text-gray-700">题目导航 ({stats.answered}/{stats.total})</h2>
+                                    <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1 text-gray-500">
+                                        <XIcon />
+                                    </button>
+                                </div>
+                                
+                                {/* Category Filters */}
+                                <div className="p-2 border-b bg-gray-50 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                                    <select 
+                                        className="w-full p-2 border rounded-md text-sm"
+                                        value={currentCategory}
+                                        onChange={(e) => setCurrentCategory(e.target.value)}
+                                    >
+                                        {categories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Question Grid */}
+                                <div className="flex-1 overflow-y-auto p-2 grid grid-cols-5 gap-2 content-start">
+                                    {filteredQuestions.map((q, idx) => {
+                                        const status = userAnswers[q.id];
+                                        const isCurrent = idx === currentIndex;
+                                        let bgClass = "bg-gray-100 text-gray-600 hover:bg-gray-200";
+                                        
+                                        if (status) {
+                                            bgClass = status === q.ans ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200";
+                                        }
+                                        if (isCurrent) {
+                                            bgClass = "bg-blue-600 text-white shadow-md ring-2 ring-blue-300";
+                                        }
+
+                                        return (
+                                            <button 
+                                                key={q.id}
+                                                onClick={() => {
+                                                    setCurrentIndex(idx);
+                                                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+                                                }}
+                                                className={`h-10 w-10 rounded-lg text-sm font-medium flex items-center justify-center border transition-all ${bgClass}`}
+                                            >
+                                                {idx + 1}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                
+                                {/* Stats Footer */}
+                                <div className="p-4 border-t bg-gray-50 text-xs text-gray-500 text-center">
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-green-600">正确: {stats.correct}</span>
+                                        <span className="text-red-500">错误: {stats.wrong}</span>
+                                    </div>
+                                    <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div 
+                                            className="bg-green-500 h-2 rounded-full transition-all duration-500" 
+                                            style={{ width: `${stats.total ? (stats.correct / stats.total) * 100 : 0}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="mt-1">正确率: {stats.answered ? Math.round((stats.correct / stats.answered) * 100) : 0}%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Overlay for mobile sidebar */}
+                        {isSidebarOpen && (
+                            <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-10 lg:hidden"></div>
+                        )}
+
+                        {/* Main Content Area */}
+                        <main className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center">
+                            <div className="w-full max-w-3xl bg-white rounded-2xl shadow-lg border border-gray-100 p-6 md:p-10 fade-in min-h-[60vh] flex flex-col">
+                                
+                                {/* Question Info */}
+                                <div className="mb-6 flex items-center justify-between text-gray-400 text-sm">
+                                    <span>题目 {currentIndex + 1} / {filteredQuestions.length}</span>
+                                    <span className="uppercase tracking-wider font-semibold text-xs border px-2 py-1 rounded">
+                                        {currentQ.category}
+                                    </span>
+                                </div>
+
+                                {/* Question Text */}
+                                <h2 className="text-xl md:text-2xl font-medium text-gray-800 mb-8 leading-relaxed">
+                                    {currentQ.q}
+                                </h2>
+
+                                {/* Options */}
+                                <div className="space-y-3 flex-1">
+                                    {Object.entries(currentQ.options).map(([key, val]) => {
+                                        const isSelected = userAnswers[currentQ.id] === key;
+                                        const isCorrect = key === currentQ.ans;
+                                        const showResult = !!userAnswers[currentQ.id];
+                                        
+                                        let btnClass = "border-gray-200 hover:bg-gray-50 hover:border-blue-300";
+                                        let icon = <span className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center text-xs text-gray-500 mr-3 font-bold">{key}</span>;
+
+                                        if (showResult) {
+                                            if (isCorrect) {
+                                                btnClass = "bg-green-50 border-green-500 text-green-800";
+                                                icon = <div className="mr-3"><CheckCircleIcon /></div>;
+                                            } else if (isSelected) {
+                                                btnClass = "bg-red-50 border-red-500 text-red-800";
+                                                icon = <div className="mr-3"><XCircleIcon /></div>;
+                                            } else if (key === currentQ.ans && isSelected === false) {
+                                                // Show correct answer if user picked wrong
+                                                btnClass = "bg-green-50 border-green-500 text-green-800 opacity-70"; 
+                                            } else {
+                                                btnClass = "opacity-50 grayscale";
+                                            }
+                                        } else {
+                                            if (isSelected) btnClass = "bg-blue-50 border-blue-500 text-blue-800";
+                                        }
+
+                                        return (
+                                            <button
+                                                key={key}
+                                                disabled={showResult}
+                                                onClick={() => handleAnswer(key)}
+                                                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 flex items-start ${btnClass}`}
+                                            >
+                                                <div className="flex-shrink-0 mt-0.5">{icon}</div>
+                                                <span className="text-base">{val}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Navigation Footer */}
+                                <div className="mt-8 pt-6 border-t flex justify-between items-center">
+                                    <button 
+                                        onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
+                                        disabled={currentIndex === 0}
+                                        className="px-6 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                    >
+                                        上一题
+                                    </button>
+                                    
+                                    {userAnswers[currentQ.id] && (
+                                        <div className={`text-sm font-bold ${userAnswers[currentQ.id] === currentQ.ans ? 'text-green-600' : 'text-red-500'}`}>
+                                            {userAnswers[currentQ.id] === currentQ.ans ? '回答正确' : `正确答案: ${currentQ.ans}`}
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        onClick={() => setCurrentIndex(Math.min(filteredQuestions.length - 1, currentIndex + 1))}
+                                        disabled={currentIndex === filteredQuestions.length - 1}
+                                        className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md shadow-blue-200"
+                                    >
+                                        下一题
+                                    </button>
+                                </div>
+
+                            </div>
+                        </main>
+                    </div>
+
+                    {/* Upload Modal */}
+                    {showUploadModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl transform transition-all scale-100">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-xl font-bold text-gray-800">导入 CSV 题库</h3>
+                                    <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600"><XIcon /></button>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">文件编码 (防止中文乱码)</label>
+                                        <div className="flex gap-4">
+                                            <label className="flex items-center">
+                                                <input type="radio" name="encoding" checked={encoding === 'UTF-8'} onChange={() => setEncoding('UTF-8')} className="mr-2" />
+                                                UTF-8 (默认)
+                                            </label>
+                                            <label className="flex items-center">
+                                                <input type="radio" name="encoding" checked={encoding === 'GBK'} onChange={() => setEncoding('GBK')} className="mr-2" />
+                                                GBK (Excel 常用)
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center bg-gray-50 hover:bg-blue-50 hover:border-blue-400 transition-colors cursor-pointer relative">
+                                        <input 
+                                            type="file" 
+                                            accept=".csv" 
+                                            multiple
+                                            onChange={handleFileUpload}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        />
+                                        <div className="text-blue-500 mb-2">
+                                            <UploadIcon />
+                                        </div>
+                                        <p className="text-sm text-gray-600 font-medium">点击或拖拽 CSV 文件到此处</p>
+                                        <p className="text-xs text-gray-400 mt-1">支持同时上传多个文件 (例如: 计算机基础.csv, 数据库.csv)</p>
+                                    </div>
+                                    
+                                    <div className="bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700 border border-yellow-200">
+                                        <p className="font-bold mb-1">提示：</p>
+                                        <ul className="list-disc pl-4 space-y-1">
+                                            <li>Excel 导出 CSV 时，如果出现中文乱码，请尝试切换上方编码为 <strong>GBK</strong>。</li>
+                                            <li>CSV 必须包含表头：题干, A, B, C, D, 答案。</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
